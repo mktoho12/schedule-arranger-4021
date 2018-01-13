@@ -23,14 +23,7 @@ router.post('/', authenticationEnsurer, (req, res, next) => {
     createdBy: req.user.id,
     updatedAt: updatedAt
   }).then((schedule) => {
-    const candidateNames = req.body.candidates.trim().split('\n').map((s) => s.trim());
-    const candidates = candidateNames.map((c) => { return {
-      candidateName: c,
-      scheduleId: schedule.scheduleId
-    };});
-    Candidate.bulkCreate(candidates).then(() => {
-          res.redirect('/schedules/' + schedule.scheduleId);
-    });
+    createCandidatesAndRedirect(parseCandidateNames(req), scheduleId, res)
   });
 });
 
@@ -126,4 +119,90 @@ router.get('/:scheduleId', authenticationEnsurer, (req, res, next) => {
     });
   });
 });
+
+router.get('/:scheduleId/edit', authenticationEnsurer, (req, res, next) => {
+  Schedule.findOne({
+    where: {
+      scheduleId: req.params.scheduleId
+    }
+  }).then(schedule => {
+    if (isMine(req, schedule)) { // 作者のみが編集フォームを開ける
+      Candidate.findAll({
+        where: { scheduleId: schedule.scheduleId },
+        order: '"candidateId" ASC'
+      }).then(candidates => {
+        res.render('edit', {
+          user: req.user,
+          schedule: schedule,
+          candidates: candidates
+        })
+      })
+    } else {
+      const err = new Error('指定された予定がない、または、予定する権限がありません')
+      err.status = 404
+      next(err)
+    }
+  })
+})
+
+router.post('/:scheduleId', authenticationEnsurer, (req, res, next) => {
+  if (parseInt(req.query.edit) === 1) {
+    Schedule.findOne({
+      where: {
+        scheduleId: req.params.scheduleId
+      }
+    }).then(schedule => {
+      if (isMine(req, schedule)) { // 作成者のみ
+        const updatedAt = new Date()
+        schedule.update({
+          scheduleId: schedule.scheduleId,
+          scheduleName: req.body.scheduleName.slice(0, 255),
+          memo: req.body.memo,
+          createdBy: req.user.id,
+          updatedAt: updatedAt
+        }).then(schedule => {
+          Candidate.findAll({
+            where: { scheduleId: schedule.scheduleId },
+            order: '"candidateId" ASC'
+          }).then(candidates => {
+            // 追加されているかチェック
+            const candidateNames = parseCandidateNames(req)
+            if (candidateNames) {
+              createCandidatesAndRedirect(candidateNames, schedule.scheduleId, res)
+            } else {
+              res.redirect('/schedules/' + schedule.scheduleId)
+            }
+          })
+        })
+      } else {
+        const err = new Error('指定された予定がない、または、編集する権限かありません')
+        err.status = 404
+        next(err)
+      }
+    })
+  } else {
+    const err = new Error('不正なクエリです')
+    err.status = 400
+    next(err)
+  }
+})
+
+function isMine(req, schedule) {
+  return schedule && parseInt(schedule.createdBy) === parseInt(req.user.id)
+}
+
+function createCandidatesAndRedirect(candidateNames, scheduleId, res) {
+  const candidates = candidateNames.map((c) => { return {
+    candidateName: c,
+    scheduleId: scheduleId
+  };});
+  Candidate.bulkCreate(candidates).then(() => {
+        res.redirect('/schedules/' + scheduleId);
+  });
+}
+
+function parseCandidateNames(req) {
+  return req.body.candidates.trim().split('\n').map((s) => s.trim());
+}
+
 module.exports = router;
