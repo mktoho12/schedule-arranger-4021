@@ -193,7 +193,7 @@ describe('/schedules/:scheduleId?edit=1', () => {
             })
             .end((err, res) => {
               Schedule.findById(scheduleId).then(s => {
-                assert.equal(s.scheduleName, 'テスト更新予定2')
+                assert.equal(s.scheduleName, 'テスト更新予定23')
                 assert.equal(s.memo, 'テスト更新メモ2')
               })
               Candidate.findAll({
