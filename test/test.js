@@ -195,7 +195,7 @@ describe('/schedules/:scheduleId?edit=1', () => {
               Schedule.findById(scheduleId).then(s => {
                 assert.equal(s.scheduleName, 'テスト更新予定23')
                 assert.equal(s.memo, 'テスト更新メモ2')
-              })
+              }).catch(done)
               Candidate.findAll({
                 where: ({ scheduleId: scheduleId }),
                 order: '"candidateId" ASC'
@@ -204,7 +204,7 @@ describe('/schedules/:scheduleId?edit=1', () => {
                 assert.equal(candidates[0].candidateName, 'テスト更新候補1')
                 assert.equal(candidates[1].candidateName, 'テスト更新候補2')
                 deleteScheduleAggregate(scheduleId, done, err)
-              })
+              }).catch(done)
             })
         })
     })
